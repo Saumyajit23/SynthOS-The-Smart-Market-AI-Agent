@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/three": "^0.184.1",
+    "framer-motion": "^12.34.0",
+    "lucide-react": "^0.563.0",
+    "three": "^0.184.0"
+  }
+}

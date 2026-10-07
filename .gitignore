@@ -1,0 +1,31 @@
+# Secrets
+.env
+.env.*
+!.env.example
+k8s/secrets.yaml
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Local data (remove a line if you actually want that folder on GitHub)
+.agent/
+memory/
+*.db
+infra/volumes/
+
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/build/
+frontend/.env*

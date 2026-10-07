@@ -1,0 +1,84 @@
+# ── Deployment — FastAPI backend ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: synthos
+  labels:
+    app: backend
+spec:
+  replicas: 2               # 2 replicas — if one crashes, other keeps serving
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: infra-backend:latest   # built from brain/Dockerfile
+          imagePullPolicy: IfNotPresent   # use local image in minikube
+          ports:
+            - containerPort: 8000
+          env:
+            # Pull non-sensitive config from ConfigMap
+            - name: MILVUS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: synthos-config
+                  key: MILVUS_HOST
+            - name: MILVUS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: synthos-config
+                  key: MILVUS_PORT
+            # Pull sensitive keys from Secret
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: synthos-secrets
+                  key: GROQ_API_KEY
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: synthos-secrets
+                  key: GOOGLE_API_KEY
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+---
+# ── Service — exposes backend to other pods + ingress ─────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: synthos
+  labels:
+    app: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP             # internal only — ingress handles external traffic

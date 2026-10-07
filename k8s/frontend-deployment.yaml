@@ -1,0 +1,68 @@
+# ── Deployment — Next.js frontend ────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: synthos
+  labels:
+    app: frontend
+spec:
+  replicas: 2               # 2 replicas for high availability
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: infra-frontend:latest  # built from frontend/Dockerfile
+          imagePullPolicy: IfNotPresent   # use local image in minikube
+          ports:
+            - containerPort: 3000
+          env:
+            # At runtime Next.js needs to know where the backend is
+            - name: NEXT_PUBLIC_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: synthos-config
+                  key: NEXT_PUBLIC_API_URL
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "125m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+
+---
+# ── Service — exposes frontend to ingress ─────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: synthos
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP             # ingress handles external access

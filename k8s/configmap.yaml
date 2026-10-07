@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: synthos-config
+  namespace: synthos
+data:
+  # Milvus connection — uses K8s service name instead of localhost
+  MILVUS_HOST: "milvus-service"
+  MILVUS_PORT: "19530"
+
+  # Frontend → Backend URL (in K8s, frontend reaches backend via service name)
+  NEXT_PUBLIC_API_URL: "http://backend-service:8000"
+
+  # App settings
+  UVICORN_HOST: "0.0.0.0"
+  UVICORN_PORT: "8000"

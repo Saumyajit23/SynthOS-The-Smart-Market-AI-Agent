@@ -1,0 +1,93 @@
+# ── Persistent Volume Claim — gives Milvus a place to store data ──────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: milvus-pvc
+  namespace: synthos
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# ── Deployment — tells K8s how to run the Milvus container ───────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: milvus
+  namespace: synthos
+  labels:
+    app: milvus
+spec:
+  replicas: 1               # Milvus standalone = always 1 replica
+  selector:
+    matchLabels:
+      app: milvus
+  template:
+    metadata:
+      labels:
+        app: milvus
+    spec:
+      containers:
+        - name: milvus
+          image: milvusdb/milvus:v2.3.0
+          command: ["milvus", "run", "standalone"]
+          ports:
+            - containerPort: 19530   # gRPC — used by backend to talk to Milvus
+            - containerPort: 9091    # HTTP metrics
+          env:
+            - name: ETCD_USE_EMBED
+              value: "true"          # embedded etcd — no separate etcd pod needed
+            - name: ETCD_DATA_DIR
+              value: "/var/lib/milvus/etcd"
+            - name: COMMON_STORAGETYPE
+              value: "local"         # local storage — no MinIO needed in K8s
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: milvus-storage
+              mountPath: /var/lib/milvus
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9091
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9091
+            initialDelaySeconds: 60
+            periodSeconds: 20
+      volumes:
+        - name: milvus-storage
+          persistentVolumeClaim:
+            claimName: milvus-pvc
+
+---
+# ── Service — exposes Milvus to other pods inside the cluster ─────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus-service
+  namespace: synthos
+  labels:
+    app: milvus
+spec:
+  selector:
+    app: milvus           # routes traffic to pods with label app=milvus
+  ports:
+    - name: grpc
+      port: 19530
+      targetPort: 19530
+    - name: metrics
+      port: 9091
+      targetPort: 9091
+  type: ClusterIP           # internal only — Milvus never exposed to internet
